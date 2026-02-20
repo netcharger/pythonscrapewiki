@@ -11,20 +11,14 @@ Wikidata types:
   Q2514330 = community development block
 """
 
+import os, sys
 import requests
-import mysql.connector
 import time
 import re
 
-# =====================
-#  CONFIG
-# =====================
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db
+
 SPARQL_URL = "https://query.wikidata.org/sparql"
 HEADERS    = {"User-Agent": "villagesindia.com (balamurali@example.com)"}
 
@@ -74,16 +68,15 @@ SUBDISTRICT_TYPES = "wd:Q817477 wd:Q1229870 wd:Q6465 wd:Q2514330"
 # =====================
 #  DB
 # =====================
-def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+# get_db is imported from db_config
 
 def add_column_if_missing():
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute("ALTER TABLE `wikipedia_subdistricts` ADD COLUMN `wikidata_id` VARCHAR(20) NULL")
         print("  Added column: wikipedia_subdistricts.wikidata_id")
-    except mysql.connector.Error as e:
-        if e.errno != 1060:
+    except Exception as e:
+        if "Duplicate column" not in str(e):
             print(f"  Warning: {e}")
     conn.commit(); cur.close(); conn.close()
 

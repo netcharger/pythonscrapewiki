@@ -7,20 +7,13 @@ for NOT_FOUND subdistricts, then saves wiki_url and sets status=FOUND.
 Goal: Only save the Wikipedia URL. Wikidata ID and coordinates are optional.
 """
 
+import os, sys
 import requests
-import mysql.connector
 import time
 import re
 
-# =====================
-# CONFIG
-# =====================
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db as _get_db
 
 # Real browser headers to avoid bot detection
 HEADERS = {
@@ -39,7 +32,7 @@ DELAY    = 2  # seconds between requests
 # DB
 # =====================
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    return _get_db()
 
 
 # =====================

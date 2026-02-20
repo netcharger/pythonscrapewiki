@@ -1,41 +1,33 @@
-import mysql.connector
-import wikipediaapi
+import os, sys
 import requests
 import time
 
-# Database configuration
-db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db
 
 # Wikipedia API Headers (Required by Wikipedia)
 HEADERS = {
     'User-Agent': 'villages-india-project (balamurali@example.com)'
 }
-
-# Initialize Wikipedia API
-wiki_wiki = wikipediaapi.Wikipedia(
-    language='en',
-    user_agent=HEADERS['User-Agent']
-)
+WIKI_REST = "https://en.wikipedia.org/api/rest_v1/page/summary/"
+WIKI_API  = "https://en.wikipedia.org/w/api.php"
 
 def get_connection():
-    return mysql.connector.connect(**db_config)
+    return get_db()
 
 def get_page_direct(term):
+    """Uses REST API with timeout — no hanging (replaces wikipediaapi)."""
     try:
-        page = wiki_wiki.page(term)
-        if page.exists():
-            return {
-                "title": page.title,
-                "summary": page.summary[0:1000],
-                "url": page.fullurl
-            }
+        encoded = requests.utils.quote(term.replace(' ', '_'))
+        r = requests.get(f"{WIKI_REST}{encoded}", headers=HEADERS, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            if d.get('type') in ('standard', 'disambiguation'):
+                return {'title': d.get('title', term),
+                        'summary': d.get('extract', '')[:1000],
+                        'url': d.get('content_urls', {}).get('desktop', {}).get('page', '')}
     except KeyboardInterrupt:
-        raise  # Always allow Ctrl+C to stop
+        raise
     except Exception as e:
         print(f"  [WARN] Error fetching '{term}': {e}")
     return None

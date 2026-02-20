@@ -1,15 +1,9 @@
-import mysql.connector
-
-# Database configuration
-db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+import os, sys
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db
 
 def get_connection():
-    return mysql.connector.connect(**db_config)
+    return get_db()
 
 def setup_tables():
     conn = get_connection()

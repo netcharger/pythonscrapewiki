@@ -7,29 +7,16 @@ then matches them to wikipedia_districts table using multiple name patterns.
 Saves: wikidata_id, latitude, longitude
 """
 
+import os, sys
 import requests
-import mysql.connector
 import time
 import re
 
-# =====================
-#  CONFIG
-# =====================
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db
+
 SPARQL_URL = "https://query.wikidata.org/sparql"
 HEADERS    = {"User-Agent": "villagesindia.com (balamurali@example.com)"}
-
-
-# =====================
-#  DB
-# =====================
-def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
 
 def add_column_if_missing():
     conn = get_db(); cur = conn.cursor()
