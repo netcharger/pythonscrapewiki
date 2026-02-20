@@ -13,21 +13,21 @@ KEY IMPROVEMENTS vs old script:
   - Tries more search patterns in the right order.
 """
 
-import mysql.connector
+import os
+import sys
 import requests
 import re
 import time
 
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db as _get_db_from_config
+from generate_status_report import generate_report
+
+AUTO_REPORT_EVERY = 1000
+
 # =====================
 # CONFIG
 # =====================
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
-
 HEADERS = {"User-Agent": "villages-india-project (balamurali@example.com)"}
 WIKI_API  = "https://en.wikipedia.org/w/api.php"
 WIKI_REST = "https://en.wikipedia.org/api/rest_v1/page/summary/"
@@ -41,7 +41,7 @@ SKIP_STATES = {"andaman and nicobar islands", "lakshadweep"}
 # DB
 # =====================
 def get_db():
-    return mysql.connector.connect(**DB_CONFIG)
+    return _get_db_from_config()
 
 
 # =====================
@@ -236,7 +236,7 @@ def extract_villages():
     cur.close()
     print(f"Found {len(rows)} villages to process.\n")
 
-    found = 0; not_found = 0; skipped = 0
+    found = 0; not_found = 0; skipped = 0; processed = 0
 
     for row in rows:
         name        = row["village_name"]
@@ -290,6 +290,12 @@ def extract_villages():
         """, (title, url, summary, status, lat, lon, code))
         conn.commit(); upd.close()
 
+        processed += 1
+        if processed % AUTO_REPORT_EVERY == 0:
+            print(f"\n[AUTO-REPORT] {processed} villages done — refreshing status...")
+            try: generate_report()
+            except Exception as e: print(f"  [WARN] Report: {e}")
+
         time.sleep(DELAY)
 
     conn.close()
@@ -297,6 +303,8 @@ def extract_villages():
     print(f"  FOUND:    {found}")
     print(f"  NOT FOUND:{not_found}")
     print(f"  SKIPPED:  {skipped}")
+    try: generate_report()
+    except Exception: pass
 
 
 if __name__ == "__main__":

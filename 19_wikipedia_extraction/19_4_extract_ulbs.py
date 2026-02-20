@@ -1,41 +1,36 @@
-import mysql.connector
-import wikipediaapi
+import os
+import sys
 import requests
 import time
 
-# Database configuration
-db_config = {
-    "host": "localhost",
-    "user": "root",
-    "password": "",
-    "database": "census_india_2011"
-}
+sys.path.insert(0, os.path.dirname(__file__))
+from db_config import get_db
+from generate_status_report import generate_report
 
-HEADERS = {
-    'User-Agent': 'villages-india-project (balamurali@example.com)'
-}
+AUTO_REPORT_EVERY = 1000
 
-wiki_wiki = wikipediaapi.Wikipedia(
-    language='en',
-    user_agent=HEADERS['User-Agent']
-)
+HEADERS = {'User-Agent': 'villages-india-project (balamurali@example.com)'}
+WIKI_API  = "https://en.wikipedia.org/w/api.php"
+WIKI_REST = "https://en.wikipedia.org/api/rest_v1/page/summary/"
 
 def get_connection():
-    return mysql.connector.connect(**db_config)
+    return get_db()
 
 def get_page_direct(term):
+    """REST API with timeout — no hanging."""
     try:
-        page = wiki_wiki.page(term)
-        if page.exists():
-            return {
-                "title": page.title,
-                "summary": page.summary[0:1000],
-                "url": page.fullurl
-            }
+        encoded = requests.utils.quote(term.replace(' ', '_'))
+        r = requests.get(f"{WIKI_REST}{encoded}", headers=HEADERS, timeout=10)
+        if r.status_code == 200:
+            d = r.json()
+            if d.get('type') in ('standard', 'disambiguation'):
+                return {'title': d.get('title', term),
+                        'summary': d.get('extract', '')[:1000],
+                        'url': d.get('content_urls', {}).get('desktop', {}).get('page', '')}
     except KeyboardInterrupt:
         raise
     except Exception as e:
-        print(f"  [WARN] Error fetching '{term}': {e}")
+        print(f"  [WARN] {e}")
     return None
 
 def get_page_via_search(term):
@@ -199,6 +194,7 @@ def extract_ulbs():
     
     found_count = 0
     not_found_count = 0
+    processed = 0
 
     for row in rows:
         name = row['ulb_name']
@@ -231,12 +227,20 @@ def extract_ulbs():
         """, (wiki_title, wiki_url, wiki_summary, status, lat, lon, code))
         conn.commit()
         upd_cursor.close()
+
+        processed += 1
+        if processed % AUTO_REPORT_EVERY == 0:
+            print(f"\n[AUTO-REPORT] {processed} records done — refreshing status...")
+            try: generate_report()
+            except Exception as e: print(f"  [WARN] Report: {e}")
             
         time.sleep(1)
 
     print(f"\n=== DONE === Found: {found_count} | Not Found: {not_found_count}")
     cursor.close()
     conn.close()
+    try: generate_report()
+    except Exception: pass
 
 if __name__ == "__main__":
     extract_ulbs()
