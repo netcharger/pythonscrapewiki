@@ -1,0 +1,4 @@
+mysql-connector-python
+wikipedia-api
+requests
+beautifulsoup4
